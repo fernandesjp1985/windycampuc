@@ -32,19 +32,18 @@ jobs:
             echo "TEMP_STR=--.- °C" >> $GITHUB_ENV
           fi
 
-      - name: Capturar Snapshot com Texto Centrado
+      - name: Capturar Snapshot com Barra Alargada e Texto Maior
         env:
           RTSP_URL: ${{ secrets.RTSP_STREAM_URL }}
         run: |
           export TZ="Europe/Lisbon"
-          # Escapamos os dois pontos da hora para o FFmpeg não dar erro de sintaxe
           HORA=$(date +'%d-%m-%Y %H\:%M\:%S')
-          BANNER="PUCARIÇO | $HORA | $TEMP_STR | WINDYCAMPUC"
+          # Sem o título do GitHub (apenas Local, Hora e Temperatura)
+          BANNER="PUCARIÇO | $HORA | $TEMP_STR"
           
-          # 1. drawbox desenha a barra preta opaca no topo a toda a largura (tapa o carimbo da câmara)
-          # 2. drawtext desenha o texto centrado por cima da barra
+          # h=110 cobre totalmente a linha da câmara; fontsize=48 amplia o texto centrado
           ffmpeg -rtsp_transport tcp -y -i "$RTSP_URL" \
-            -vf "drawbox=x=0:y=0:w=iw:h=60:color=black:t=fill,drawtext=text='$BANNER':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=(60-text_h)/2" \
+            -vf "drawbox=x=0:y=0:w=iw:h=110:color=black:t=fill,drawtext=text='$BANNER':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(110-text_h)/2" \
             -vframes 1 -q:v 2 snapshot.jpg
 
       - name: Guardar e Publicar Imagem
@@ -52,4 +51,4 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add snapshot.jpg
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualizar snapshot com texto centrado [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Ajustar overlay: barra maior e sem windycampuc [skip ci]" && git push)
