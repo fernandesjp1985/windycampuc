@@ -1,4 +1,4 @@
-name: Captura Snapshot Pucariço
+name: Captura Snapshot Pucariço com Meteorologia
 
 on:
   schedule:
@@ -12,20 +12,46 @@ jobs:
       - name: Checkout do Repositório
         uses: actions/checkout@v4
 
-      - name: Instalar FFmpeg
+      - name: Instalar Dependências (FFmpeg, jq, bc)
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg jq bc curl
 
-      - name: Capturar Snapshot via RTSP
+      - name: Obter Dados da Estação (WU em ºF e converter para ºC)
+        run: |
+          STATION_ID="ISOBREIR3"
+          API_KEY="9980e88c4b6f437280e88c4b6f4372c2"
+          
+          # Consulta os dados meteorológicos atuais em unidades imperiais (ºF)
+          RESP=$(curl -s "https://api.weather.com/v2/pws/observations/current?stationId=${STATION_ID}&format=json&units=e&apiKey=${API_KEY}")
+          
+          TEMP_F=$(echo "$RESP" | jq -r '.observations[0].imperial.temp // empty')
+          
+          if [ -n "$TEMP_F" ]; then
+            # Converte ºF para ºC com 1 casa decimal: (F - 32) * 5 / 9
+            TEMP_C=$(printf "%.1f" $(echo "scale=4; ($TEMP_F - 32) * 5 / 9" | bc -l))
+            echo "TEMP_STR=${TEMP_C} °C" >> $GITHUB_ENV
+          else
+            echo "TEMP_STR=--.- °C" >> $GITHUB_ENV
+          fi
+
+      - name: Capturar Snapshot com Texto Centrado
         env:
           RTSP_URL: ${{ secrets.RTSP_STREAM_URL }}
         run: |
-          ffmpeg -rtsp_transport tcp -y -i "$RTSP_URL" -vframes 1 -q:v 2 snapshot.jpg
+          export TZ="Europe/Lisbon"
+          HORA=$(date +'%d-%m-%Y %H:%M:%S')
+          BANNER="PUCARIÇO | $HORA | $TEMP_STR | WINDYCAMPUC"
+          
+          # x=(w-text_w)/2 centra o texto horizontalmente
+          # boxw=iw estende o fundo preto opaco a toda a largura para tapar o carimbo original
+          ffmpeg -rtsp_transport tcp -y -i "$RTSP_URL" \
+            -vf "drawtext=text='$BANNER':fontcolor=white:fontsize=28:box=1:boxcolor=black@1.0:boxw=iw:boxborderw=22:x=(w-text_w)/2:y=18" \
+            -vframes 1 -q:v 2 snapshot.jpg
 
       - name: Guardar e Publicar Imagem
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add snapshot.jpg
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualizar snapshot [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualizar snapshot com texto centrado [skip ci]" && git push)
