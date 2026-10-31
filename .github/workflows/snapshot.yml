@@ -5,6 +5,11 @@ on:
     - cron: '*/10 * * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   capture:
     runs-on: ubuntu-latest
@@ -32,23 +37,21 @@ jobs:
             echo "TEMP_STR=--.- °C" >> $GITHUB_ENV
           fi
 
-      - name: Capturar Snapshot com Barra Alargada e Texto Maior
+      - name: Capturar Snapshot e Cobrir Carimbo
         env:
           RTSP_URL: ${{ secrets.RTSP_STREAM_URL }}
         run: |
           export TZ="Europe/Lisbon"
           HORA=$(date +'%d-%m-%Y %H\:%M\:%S')
-          # Sem o título do GitHub (apenas Local, Hora e Temperatura)
           BANNER="PUCARIÇO | $HORA | $TEMP_STR"
           
-          # h=110 cobre totalmente a linha da câmara; fontsize=48 amplia o texto centrado
           ffmpeg -rtsp_transport tcp -y -i "$RTSP_URL" \
             -vf "drawbox=x=0:y=0:w=iw:h=110:color=black:t=fill,drawtext=text='$BANNER':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(110-text_h)/2" \
             -vframes 1 -q:v 2 snapshot.jpg
 
-      - name: Guardar e Publicar Imagem
+      - name: Guardar Snapshot e Acionar Pages
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add snapshot.jpg
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Ajustar overlay: barra maior e sem windycampuc [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualizar snapshot.jpg" && git push)
