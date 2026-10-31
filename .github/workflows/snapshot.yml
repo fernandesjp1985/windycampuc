@@ -22,13 +22,10 @@ jobs:
           STATION_ID="ISOBREIR3"
           API_KEY="9980e88c4b6f437280e88c4b6f4372c2"
           
-          # Consulta os dados meteorológicos atuais em unidades imperiais (ºF)
           RESP=$(curl -s "https://api.weather.com/v2/pws/observations/current?stationId=${STATION_ID}&format=json&units=e&apiKey=${API_KEY}")
-          
           TEMP_F=$(echo "$RESP" | jq -r '.observations[0].imperial.temp // empty')
           
           if [ -n "$TEMP_F" ]; then
-            # Converte ºF para ºC com 1 casa decimal: (F - 32) * 5 / 9
             TEMP_C=$(printf "%.1f" $(echo "scale=4; ($TEMP_F - 32) * 5 / 9" | bc -l))
             echo "TEMP_STR=${TEMP_C} °C" >> $GITHUB_ENV
           else
@@ -40,13 +37,14 @@ jobs:
           RTSP_URL: ${{ secrets.RTSP_STREAM_URL }}
         run: |
           export TZ="Europe/Lisbon"
-          HORA=$(date +'%d-%m-%Y %H:%M:%S')
+          # Escapamos os dois pontos da hora para o FFmpeg não dar erro de sintaxe
+          HORA=$(date +'%d-%m-%Y %H\:%M\:%S')
           BANNER="PUCARIÇO | $HORA | $TEMP_STR | WINDYCAMPUC"
           
-          # x=(w-text_w)/2 centra o texto horizontalmente
-          # boxw=iw estende o fundo preto opaco a toda a largura para tapar o carimbo original
+          # 1. drawbox desenha a barra preta opaca no topo a toda a largura (tapa o carimbo da câmara)
+          # 2. drawtext desenha o texto centrado por cima da barra
           ffmpeg -rtsp_transport tcp -y -i "$RTSP_URL" \
-            -vf "drawtext=text='$BANNER':fontcolor=white:fontsize=28:box=1:boxcolor=black@1.0:boxw=iw:boxborderw=22:x=(w-text_w)/2:y=18" \
+            -vf "drawbox=x=0:y=0:w=iw:h=60:color=black:t=fill,drawtext=text='$BANNER':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=(60-text_h)/2" \
             -vframes 1 -q:v 2 snapshot.jpg
 
       - name: Guardar e Publicar Imagem
