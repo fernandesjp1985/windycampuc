@@ -17,10 +17,10 @@ jobs:
       - name: Checkout do Repositório
         uses: actions/checkout@v4
 
-      - name: Instalar Dependências (FFmpeg, jq, bc)
+      - name: Instalar Dependências (FFmpeg, jq, bc, Fontes)
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg jq bc curl
+          sudo apt-get install -y ffmpeg jq bc curl fonts-dejavu-core
 
       - name: Obter Dados da Estação (WU em ºF e converter para ºC)
         run: |
@@ -46,7 +46,7 @@ jobs:
           BANNER="PUCARIÇO | $HORA | $TEMP_STR"
           
           ffmpeg -rtsp_transport tcp -y -i "$RTSP_URL" \
-            -vf "drawbox=x=0:y=0:w=iw:h=110:color=black:t=fill,drawtext=text='$BANNER':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(110-text_h)/2" \
+            -vf "drawbox=x=0:y=0:w=iw:h=110:color=black:t=fill,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='$BANNER':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(110-text_h)/2" \
             -vframes 1 -q:v 2 snapshot.jpg
 
       - name: Guardar Snapshot e Acionar Pages
@@ -54,4 +54,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add snapshot.jpg
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualizar snapshot.jpg" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualizar snapshot.jpg" || exit 0)
+          git pull --rebase origin main
+          git push origin main
